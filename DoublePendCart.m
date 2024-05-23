@@ -87,7 +87,7 @@ x_lin(:,1) = x0;
 y_lin = zeros(size(C,1),N_samples);
 y_lin(:,1) = C*x0;
 xhat_lin = zeros(6,N_samples);
-x0hat = [0;3;pi;10;-1;5];
+x0hat = [0;0;pi/3;0;0;0];
 xhat_lin(:,1)=x0hat;
 
 u_c_lin = zeros(1,N_samples);
@@ -106,13 +106,13 @@ Kd = place(Ad,Bd,polesd);
 obspolesd =  exp([-1 -5 -20 -100 -30 -150]*dt);
 Ld = place(Ad',C',obspolesd)';
 
-x = zeros(6,N_samples);
-x(:,1) = x0;
-x_pred = zeros(size(Ad,1),N_samples);
-x_pred(:,1) = zeros(size(Ad,1),1);
-x_hat  = zeros(size(Ad,1),N_samples);
-x_hat(:,1) = x0hat;
-u_c = zeros(1,N_samples);
+%x = zeros(6,N_samples);
+%x(:,1) = x0;
+%x_pred = zeros(size(Ad,1),N_samples);
+%x_pred(:,1) = zeros(size(Ad,1),1);
+%x_hat  = zeros(size(Ad,1),N_samples);
+%x_hat(:,1) = x0hat;
+%u_c = zeros(1,N_samples);
 
 %%EKF
 A_nl = jacobian(Ydd,y);
@@ -122,6 +122,17 @@ B_nl = jacobian(Ydd,u);
 B_nl=[B_nl(1);B_nl(4);B_nl(2);B_nl(5);B_nl(3);B_nl(6)];
 f_ekf(xc,xcd,alpha,alphad,theta,thetad,u) = subs(A_nl+B_nl,[a1;a2;a3;a4;a5;a6;zeta1;zeta2],[a1_c;a2_c;a3_c;a4_c;a5_c;a6_c;zeta1_c;zeta2_c]);
 
+%%Uknown Input
+E = [0;0;0;0;1;0];
+Ae= [Ad,E;[zeros(size(E,2),size(Ad,2)+size(E,2))]];
+Be= [Bd;zeros(size(E,2),1)];
+Ce= [C,zeros(size(E,1),1)];
+d=1;
+xe = zeros(7,N_samples);
+xe(:,1) = [x0;d];
+xe_hat = zeros(7,N_samples);
+xe_hat(:,1) = [1;2;pi/2;1;-pi/2;0;d];
+u_lin = zeros(1,N_samples);
 for i=1:N_samples-1
     %Discrete linear system
     %u_c_lin(i) = -Kd*x_hat(:,i);
@@ -134,7 +145,6 @@ for i=1:N_samples-1
     %u_co(i+1) = -Kd*x_lin(:,i);
     
     %Kalman Filter
-    
     %x_pred(:,i+1)=Ad*x_hat(:,i)+Bd*u_c_lin(i);
     %P_pred = Ad*P*Ad'+Q;
     %K_k = P_pred*C'/(C*P_pred*C'+R);
@@ -142,19 +152,27 @@ for i=1:N_samples-1
     %P = (eye(size(Ad,1))-K_k*C)*P_pred*(eye(size(Ad,1))-K_k*C)'+K_k*R*K_k';    
 
     %Discrete nonlinear model
-    x(:,i+1) = fd(x(:,i),-Kd*x(:,i),dt, a1_c, a2_c, a3_c, a4_c, a5_c, a6_c, zeta1_c, zeta2_c);
+    %x(:,i+1) = fd(x(:,i),-Kd*x(:,i),dt, a1_c, a2_c, a3_c, a4_c, a5_c, a6_c, zeta1_c, zeta2_c);
+    
     %Extended Kalman Filter
-    x(:,i+1) = x(:,i+1)+w*randn(size(Ad,1),1);
-    y_nl(:,i+1) = C*x(:,i+1)+v*randn(size(C,1),1);
-    x_pred(:,i+1) = fd(x_hat(:,i),-Kd*x(:,i),dt, a1_c, a2_c, a3_c, a4_c, a5_c, a6_c, zeta1_c, zeta2_c);
-    A_ekf = eval(f_ekf(x_hat(1,i),x_hat(2,i),x_hat(3,i),x_hat(4,i),x_hat(5,i),x_hat(6,i),-Kd*x(:,i)));
-    P_pred = A_ekf*P*A_ekf'+Q;
-    K_ekf = P_pred*C'/(C*P_pred*C'+R);
-    x_hat(:,i+1) = x_pred(:,i+1)+K_ekf*(y_nl(:,i+1)-C*x_pred(:,i+1));
-    P = (eye(size(A_ekf,1))-K_ekf*C)*P_pred*(eye(size(A_ekf,1))-K_ekf*C)'+K_ekf*R*K_ekf';    
+    %x(:,i+1) = x(:,i+1)+w*randn(size(Ad,1),1);
+    %y_nl(:,i+1) = C*x(:,i+1)+v*randn(size(C,1),1);
+    %x_pred(:,i+1) = fd(x_hat(:,i),-Kd*x(:,i),dt, a1_c, a2_c, a3_c, a4_c, a5_c, a6_c, zeta1_c, zeta2_c);
+    %A_ekf = eval(f_ekf(x_hat(1,i),x_hat(2,i),x_hat(3,i),x_hat(4,i),x_hat(5,i),x_hat(6,i),-Kd*x(:,i)));
+    %P_pred = A_ekf*P*A_ekf'+Q;
+    %K_ekf = P_pred*C'/(C*P_pred*C'+R);
+    %x_hat(:,i+1) = x_pred(:,i+1)+K_ekf*(y_nl(:,i+1)-C*x_pred(:,i+1));
+    %P = (eye(size(A_ekf,1))-K_ekf*C)*P_pred*(eye(size(A_ekf,1))-K_ekf*C)'+K_ekf*R*K_ekf';    
+
+    %Unknown input observer
+    %u_lin(i) = [-Kd,0]*xe(:,i);
+    %xe(:,i+1) = Ae*xe(:,i)+Be*u_lin(i);
+    %ye(:,i+1) = Ce*xe(:,i+1);
+    %xe_hat(:,i+1) = Ae*xe_hat(:,i)+Be*u_lin(i)+[Ld;zeros(1,6)]*(ye(:,i)-Ce*xe_hat(:,i));
+    %
+    
 end
 %% Plots
-
 %{
 subplot(321)
 hold on
@@ -176,7 +194,7 @@ subplot(326)
 plot(dt*(0:N_samples-1),x_lin(6,:)*180/pi,dt*(0:N_samples-1),x_hat(6,:)*180/pi)
 legend('Theta ang. velocity','Theta ang. velocity(Obs.)')
 %}
-%%{
+%{
 figure
 subplot(321)
 hold on
@@ -199,6 +217,30 @@ plot(dt*(0:N_samples-1),x(6,:)*180/pi,dt*(0:N_samples-1),x_hat(6,:)*180/pi)
 legend('Theta ang. velocity','Theta ang. velocity(Obs.)')
 figure
 plot(dt*(0:N_samples-1),-Kd*x(:,:))
+%}
+%{
+figure
+subplot(321)
+hold on
+plot(dt*(0:N_samples-1),xe(1,:),dt*(0:N_samples-1),xe_hat(1,:))
+legend('Cart position','Cart postion(Obs.)')
+subplot(322)
+plot(dt*(0:N_samples-1),xe(2,:),dt*(0:N_samples-1),xe_hat(2,:))
+legend('Cart velocity','Cart velocity(Obs.)')
+subplot(323)
+plot(dt*(0:N_samples-1),xe(3,:)*180/pi,dt*(0:N_samples-1),xe_hat(3,:)*180/pi)
+legend('Alpha angle','Alpha angle(Obs.)')
+subplot(324)
+plot(dt*(0:N_samples-1),xe(4,:)*180/pi,dt*(0:N_samples-1),xe_hat(4,:)*180/pi)
+legend('Alpha ang. velocity','Alpha ang. velocity(Obs.)')
+subplot(325)
+plot(dt*(0:N_samples-1),xe(5,:)*180/pi,dt*(0:N_samples-1),xe_hat(5,:)*180/pi)
+legend('Theta angle','Theta angle(Obs.)')
+subplot(326)
+plot(dt*(0:N_samples-1),xe(6,:)*180/pi,dt*(0:N_samples-1),xe_hat(6,:)*180/pi)
+legend('Theta ang. velocity','Theta ang. velocity(Obs.)')
+figure
+plot(dt*(0:N_samples-1),[-Kd,0]*xe(:,:))
 %}
 
 %% Functions
