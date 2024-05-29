@@ -64,10 +64,10 @@ B = eval(B);
 A=[A(:,1),A(:,4),A(:,2),A(:,5),A(:,3),A(:,6)];
 A=[A(1,:);A(4,:);A(2,:);A(5,:);A(3,:);A(6,:)];
 B=[B(1);B(4);B(2);B(5);B(3);B(6)];
-C = eye(6);
-%C = [1,zeros(1,5);
-%    0,0,1,zeros(1,3);
-%   zeros(1,4),1,0];
+%C = eye(6);
+C = [1,zeros(1,5);
+    0,0,1,zeros(1,3);
+   zeros(1,4),1,0];
 %Controllability (fully controllable)
 rank(ctrb(A,B));
 K_c = place(A,B,[-8,-30,-2,-100,-3,-120]);
@@ -115,24 +115,36 @@ Ld = place(Ad',C',obspolesd)';
 %u_c = zeros(1,N_samples);
 
 %%EKF
-A_nl = jacobian(Ydd,y);
-A_nl=[A_nl(:,1),A_nl(:,4),A_nl(:,2),A_nl(:,5),A_nl(:,3),A_nl(:,6)];
-A_nl=[A_nl(1,:);A_nl(4,:);A_nl(2,:);A_nl(5,:);A_nl(3,:);A_nl(6,:)];
-B_nl = jacobian(Ydd,u);
-B_nl=[B_nl(1);B_nl(4);B_nl(2);B_nl(5);B_nl(3);B_nl(6)];
-f_ekf(xc,xcd,alpha,alphad,theta,thetad,u) = subs(A_nl+B_nl,[a1;a2;a3;a4;a5;a6;zeta1;zeta2],[a1_c;a2_c;a3_c;a4_c;a5_c;a6_c;zeta1_c;zeta2_c]);
+%A_nl = jacobian(Ydd,y);
+%A_nl=[A_nl(:,1),A_nl(:,4),A_nl(:,2),A_nl(:,5),A_nl(:,3),A_nl(:,6)];
+%A_nl=[A_nl(1,:);A_nl(4,:);A_nl(2,:);A_nl(5,:);A_nl(3,:);A_nl(6,:)];
+%B_nl = jacobian(Ydd,u);
+%B_nl=[B_nl(1);B_nl(4);B_nl(2);B_nl(5);B_nl(3);B_nl(6)];
+%f_ekf(xc,xcd,alpha,alphad,theta,thetad,u) = subs(A_nl+B_nl,[a1;a2;a3;a4;a5;a6;zeta1;zeta2],[a1_c;a2_c;a3_c;a4_c;a5_c;a6_c;zeta1_c;zeta2_c]);
 
 %%Uknown Input
-E = [0;0;0;0;1;0];
-Ae= [Ad,E;[zeros(size(E,2),size(Ad,2)+size(E,2))]];
-Be= [Bd;zeros(size(E,2),1)];
-Ce= [C,zeros(size(E,1),1)];
-d=1;
-xe = zeros(7,N_samples);
-xe(:,1) = [x0;d];
-xe_hat = zeros(7,N_samples);
-xe_hat(:,1) = [1;2;pi/2;1;-pi/2;0;d];
-u_lin = zeros(1,N_samples);
+%E = [0;0;0;0;1;0];
+%Ae= [Ad,E;[zeros(size(E,2),size(Ad,2)+size(E,2))]];
+%Be= [Bd;zeros(size(E,2),1)];
+%Ce= [C,zeros(size(E,1),1)];
+%d=1;
+%xe = zeros(7,N_samples);
+%xe(:,1) = [x0;d];
+%xe_hat = zeros(7,N_samples);
+%xe_hat(:,1) = [1;2;pi/2;1;-pi/2;0;d];
+%u_lin = zeros(1,N_samples);
+
+%Unknown Input Decoupling
+E = [1;1;0.5;0;0.5;0];
+if rank(E)==rank(C*E) %check condition 1
+    H = E*pinv(C*E);
+    T = eye(size(H*C,1))-H*C;
+end
+if rank(obsv(T*A,C))==size(T*A,1)
+    K1 = place((T*A)',C',10*[-8,-30,-2,-100,-3,-120])';
+    F = T*A-K1*C;
+    K2 = F*H;
+end
 for i=1:N_samples-1
     %Discrete linear system
     %u_c_lin(i) = -Kd*x_hat(:,i);
